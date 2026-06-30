@@ -1,19 +1,39 @@
 {
   "version": 2,
   "framework": null,
+  "outputDirectory": "public",
+  "env": {
+    "APP_NAME": "Refugio Conectado",
+    "APP_ENV": "production",
+    "APP_KEY": "base64:Xoth5rtbLUtlg3/KV9Hj8NKbR0teaANjSJkjM9eEIbQ=",
+    "APP_DEBUG": "true",
+    "APP_URL": "https://refugio-kappa.vercel.app",
+    "DB_CONNECTION": "sqlite",
+    "DB_DATABASE": "/tmp/database.sqlite",
+    "SESSION_DRIVER": "cookie",
+    "LOG_CHANNEL": "stderr",
+    "VIEW_COMPILED_PATH": "/tmp/views",
+    "CACHE_STORE": "array",
+    "APP_SERVICES_CACHE": "/tmp/services.php",
+    "APP_PACKAGES_CACHE": "/tmp/packages.php",
+    "APP_CONFIG_CACHE": "/tmp/config.php",
+    "APP_ROUTES_CACHE": "/tmp/routes.php",
+    "SUPABASE_URL": "https://zocvbksgzmwzapudciyu.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvY3Zia3Nnem13emFwdWRjaXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3Mzg3MzgsImV4cCI6MjA5ODMxNDczOH0.pCl-w8oWuQSAaCkehseJoDy9NSRoykP5GU409CU8ivw"
+  },
   "functions": {
     "api/*.php": {
-      "runtime": "vercel-php@0.7.0"
+      "runtime": "vercel-php@0.9.0"
     }
   },
   "routes": [
     {
       "src": "/build/(.*)",
-      "dest": "/public/build/$1"
+      "dest": "/build/$1"
     },
     {
       "src": "/(css|js|images|favicon.ico|robots.txt)(.*)",
-      "dest": "/public/$1$2"
+      "dest": "/$1$2"
     },
     {
       "src": "/(.*)",

@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+node_modules
+vendor
+bootstrap/cache/config.php
+bootstrap/cache/routes-v7.php
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+storage/framework/views/*
+storage/framework/cache/*
+storage/framework/sessions/*
+public/hot
+
