@@ -31,6 +31,30 @@ export default function RegistrationForm() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [registeredId, setRegisteredId] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [shelters, setShelters] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchShelters = async () => {
+      try {
+        const res = await fetch('https://unwraxprhvuqldqsropm.supabase.co/rest/v1/shelters?select=id,nombre', {
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVud3JheHByaHZ1cWxkcXNyb3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzQzMTUsImV4cCI6MjA5ODMxMDMxNX0.9Ay68RnjEvtpF27HAIcJqKu2XpQHy7SByxv-QPA206w',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVud3JheHByaHZ1cWxkcXNyb3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzQzMTUsImV4cCI6MjA5ODMxMDMxNX0.9Ay68RnjEvtpF27HAIcJqKu2XpQHy7SByxv-QPA206w',
+          }
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setShelters(data);
+          if (data.length > 0) {
+            setFormData(prev => ({ ...prev, refugio_id: data[0].id }));
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching shelters:', e);
+      }
+    };
+    fetchShelters();
+  }, []);
 
   const updateField = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -226,6 +250,19 @@ export default function RegistrationForm() {
       case 2: // Localización
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label className="input-label">Refugio Asignado <span style={{ color: 'var(--error)' }}> *</span></label>
+              <select 
+                className="select-field" 
+                value={formData.refugio_id} 
+                onChange={e => updateField('refugio_id', parseInt(e.target.value))}
+                required
+              >
+                {shelters.map(s => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
             {renderField('Personas Desaparecidas o Separadas del Grupo Familiar', 'personas_desaparecidas', 'textarea', 'Nombre, edad y última vez que se vieron...')}
             <div>
               <label className="input-label"><Upload size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} /> Fotografía Reciente</label>

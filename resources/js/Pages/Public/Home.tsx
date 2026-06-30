@@ -21,6 +21,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
   const [searchApellido, setSearchApellido] = useState('');
   const [searchCedula, setSearchCedula] = useState('');
   const [searchZona, setSearchZona] = useState('');
+  const [searchRefugio, setSearchRefugio] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [MapComponent, setMapComponent] = useState<React.ComponentType<any> | null>(null);
@@ -51,6 +52,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
       if (searchApellido) filters.push(`apellido=ilike.*${searchApellido}*`);
       if (searchCedula) filters.push(`cedula=ilike.*${searchCedula}*`);
       if (searchZona) filters.push(`zona_residencia=ilike.*${searchZona}*`);
+      if (searchRefugio) filters.push(`refugio_id=eq.${searchRefugio}`);
       if (activeFilter === 'masculino') filters.push('genero=eq.masculino');
       if (activeFilter === 'femenino') filters.push('genero=eq.femenino');
       if (filters.length) url += '&' + filters.join('&');
@@ -92,12 +94,13 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
       setCurrentPage(1);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchApellido, searchCedula, searchZona, activeFilter]);
+  }, [searchApellido, searchCedula, searchZona, searchRefugio, activeFilter]);
 
   const clearSearch = () => {
     setSearchApellido('');
     setSearchCedula('');
     setSearchZona('');
+    setSearchRefugio('');
     setActiveFilter('todos');
   };
 
@@ -155,7 +158,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
             </h2>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
             <div>
               <label className="input-label">Por Apellido</label>
               <input
@@ -186,6 +189,22 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                 onChange={(e) => setSearchZona(e.target.value)}
               />
             </div>
+            <div>
+              <label className="input-label">Por Refugio</label>
+              <select
+                className="search-bar"
+                value={searchRefugio}
+                onChange={(e) => setSearchRefugio(e.target.value)}
+                style={{ appearance: 'none', WebkitAppearance: 'none' }}
+              >
+                <option value="">Todos los Refugios</option>
+                {shelters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Quick Filters */}
@@ -201,7 +220,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                 {f === 'todos' ? 'Todos' : f === 'masculino' ? 'Hombres' : 'Mujeres'}
               </button>
             ))}
-            {(searchApellido || searchCedula || searchZona || activeFilter !== 'todos') && (
+            {(searchApellido || searchCedula || searchZona || searchRefugio || activeFilter !== 'todos') && (
               <button
                 className="btn btn-outline"
                 style={{ padding: '6px 16px', fontSize: '13px', color: 'var(--error)' }}
@@ -245,6 +264,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                   <th>Cédula</th>
                   <th>Género</th>
                   <th>Lugar de Residencia</th>
+                  <th>Refugio</th>
                   <th>Prioridad</th>
                   <th>Estado</th>
                   <th style={{ textAlign: 'right', paddingRight: '24px' }}>Ficha</th>
@@ -254,8 +274,8 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 8 }).map((_, j) => (
-                        <td key={j} style={{ paddingLeft: j === 0 ? '24px' : '0', paddingRight: j === 7 ? '24px' : '0' }}>
+                      {Array.from({ length: 9 }).map((_, j) => (
+                        <td key={j} style={{ paddingLeft: j === 0 ? '24px' : '0', paddingRight: j === 8 ? '24px' : '0' }}>
                           <div className="skeleton" style={{ height: '16px', width: `${60 + Math.random() * 40}%` }} />
                         </td>
                       ))}
@@ -263,7 +283,7 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                   ))
                 ) : paginatedRefugees.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--on-surface-variant)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--on-surface-variant)' }}>
                       <Search size={40} style={{ color: 'var(--outline-variant)', marginBottom: '12px' }} />
                       <p className="text-body-lg" style={{ fontWeight: 600 }}>No se encontraron resultados</p>
                       <p className="text-body-md" style={{ color: 'var(--outline)' }}>Intenta con otros términos de búsqueda</p>
@@ -288,6 +308,9 @@ export default function Home({ refugees: initialRefugees, shelters: initialShelt
                           <MapPin size={14} style={{ color: 'var(--outline)', flexShrink: 0 }} />
                           {r.zona_residencia || r.municipio_residencia || '—'}
                         </div>
+                      </td>
+                      <td className="text-body-md" style={{ fontWeight: 500 }}>
+                        {shelters.find(s => s.id === r.refugio_id)?.nombre || '—'}
                       </td>
                       <td>
                         <span className={getPriorityChipClass(r.prioridad)}>

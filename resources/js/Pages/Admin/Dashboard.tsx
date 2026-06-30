@@ -44,6 +44,18 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
     password: '',
   });
 
+  // Shelter management state
+  const [showShelterModal, setShowShelterModal] = useState(false);
+  const [shelterNombre, setShelterNombre] = useState('');
+  const [shelterDireccion, setShelterDireccion] = useState('');
+  const [shelterEstado, setShelterEstado] = useState('Distrito Capital');
+  const [shelterMunicipio, setShelterMunicipio] = useState('');
+  const [shelterLatitud, setShelterLatitud] = useState('');
+  const [shelterLongitud, setShelterLongitud] = useState('');
+  const [shelterCapacidadTotal, setShelterCapacidadTotal] = useState<number>(100);
+  const [shelterEstadoOperativo, setShelterEstadoOperativo] = useState('activo');
+  const [shelterSaving, setShelterSaving] = useState(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingInspector, setEditingInspector] = useState<any>(null);
   const editForm = useForm({
@@ -130,6 +142,60 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
     router.post(`/admin/inspectors/${id}/toggle`);
   };
 
+  const handleCreateShelter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setShelterSaving(true);
+    try {
+      const headers = {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      };
+
+      const payload = {
+        nombre: shelterNombre,
+        direccion: shelterDireccion,
+        estado: shelterEstado,
+        municipio: shelterMunicipio,
+        latitud: parseFloat(shelterLatitud || '0'),
+        longitud: parseFloat(shelterLongitud || '0'),
+        capacidad_total: parseInt(String(shelterCapacidadTotal)),
+        capacidad_ocupada: 0,
+        estado_operativo: shelterEstadoOperativo,
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/shelters`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save shelter');
+      }
+
+      setShowShelterModal(false);
+      // Reset form
+      setShelterNombre('');
+      setShelterDireccion('');
+      setShelterEstado('Distrito Capital');
+      setShelterMunicipio('');
+      setShelterLatitud('');
+      setShelterLongitud('');
+      setShelterCapacidadTotal(100);
+      setShelterEstadoOperativo('activo');
+      
+      loadDashboard();
+      showAlert('Éxito', 'Refugio creado exitosamente.');
+    } catch (e) {
+      console.error('Error creating shelter:', e);
+      showAlert('Error', 'No se pudo crear el refugio en la base de datos.');
+    } finally {
+      setShelterSaving(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
   }, []);
@@ -142,7 +208,7 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
       const [refugeesRes, suppliesRes, sheltersRes] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/refugees?select=id,genero,edad,created_at`, { headers }),
         fetch(`${SUPABASE_URL}/rest/v1/supply_requirements?select=*,shelters(nombre)&order=id.asc`, { headers }),
-        fetch(`${SUPABASE_URL}/rest/v1/shelters?select=id,nombre,capacidad_total,capacidad_ocupada`, { headers }),
+        fetch(`${SUPABASE_URL}/rest/v1/shelters?select=*`, { headers }),
       ]);
 
       const refugees = await refugeesRes.json();
@@ -696,6 +762,70 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
               </section>
             </div>
 
+            {/* Gestión de Refugios */}
+            <div className="bento-grid" style={{ marginTop: '24px', marginBottom: '24px' }}>
+              <section className="bento-item" style={{ gridColumn: 'span 12' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 className="text-headline-md" style={{ color: 'var(--primary)' }}>Gestión de Refugios</h2>
+                    <p className="text-body-sm" style={{ color: 'var(--on-surface-variant)', marginTop: '4px' }}>
+                      Administra los refugios disponibles, su capacidad total y su estado operativo.
+                    </p>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => setShowShelterModal(true)}>
+                    <Plus size={16} /> Registrar Refugio
+                  </button>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Dirección</th>
+                        <th>Estado / Municipio</th>
+                        <th style={{ textAlign: 'center' }}>Coordenadas</th>
+                        <th style={{ textAlign: 'center' }}>Capacidad</th>
+                        <th style={{ textAlign: 'center' }}>Estado Operativo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shelters.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: 'var(--on-surface-variant)' }}>
+                            No hay refugios cargados en el sistema.
+                          </td>
+                        </tr>
+                      ) : (
+                        shelters.map((s: any) => (
+                          <tr key={s.id}>
+                            <td><span style={{ fontWeight: 500 }}>{s.nombre}</span></td>
+                            <td><span className="text-body-md" style={{ color: 'var(--on-surface-variant)' }}>{s.direccion}</span></td>
+                            <td className="text-body-md">{s.estado}, {s.municipio}</td>
+                            <td className="text-body-md" style={{ textAlign: 'center', color: 'var(--on-surface-variant)' }}>
+                              {s.latitud}, {s.longitud}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span style={{ fontWeight: 600 }}>{s.capacidad_ocupada}</span> / {s.capacidad_total}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`chip ${
+                                s.estado_operativo === 'activo' ? 'chip-suficiente' :
+                                s.estado_operativo === 'saturado' ? 'chip-critico' : 'chip-na'
+                              }`}>
+                                {s.estado_operativo === 'activo' ? 'Activo' :
+                                 s.estado_operativo === 'saturado' ? 'Saturado' : 'Cerrado'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
             {/* Modal de Registro de Inspector */}
             {showInspectorModal && (
               <div style={{
@@ -764,6 +894,140 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
                       style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px' }}
                     >
                       Registrar y Guardar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Registro de Refugio */}
+            {showShelterModal && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100,
+                padding: '16px'
+              }}>
+                <div className="bento-item" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'var(--surface-container-lowest)', borderRadius: '16px', boxShadow: 'var(--elevation-3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 className="text-headline-md" style={{ color: 'var(--primary)', margin: 0 }}>Registrar Refugio</h3>
+                    <button className="btn btn-outline" style={{ padding: '6px', borderRadius: '50%', minWidth: 'auto' }} onClick={() => setShowShelterModal(false)}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleCreateShelter} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label className="input-label">Nombre del Refugio</label>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        placeholder="Ej: Gimnasio Vertical La Vega" 
+                        value={shelterNombre} 
+                        onChange={e => setShelterNombre(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="input-label">Dirección</label>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        placeholder="Ej: Av. Principal, frente a la plaza" 
+                        value={shelterDireccion} 
+                        onChange={e => setShelterDireccion(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Estado</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          value={shelterEstado} 
+                          onChange={e => setShelterEstado(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Municipio</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          placeholder="Ej: Libertador" 
+                          value={shelterMunicipio} 
+                          onChange={e => setShelterMunicipio(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Latitud</label>
+                        <input 
+                          type="number" 
+                          step="any"
+                          className="input-field" 
+                          placeholder="Ej: 10.4806" 
+                          value={shelterLatitud} 
+                          onChange={e => setShelterLatitud(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Longitud</label>
+                        <input 
+                          type="number" 
+                          step="any"
+                          className="input-field" 
+                          placeholder="Ej: -66.9036" 
+                          value={shelterLongitud} 
+                          onChange={e => setShelterLongitud(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Capacidad Total</label>
+                        <input 
+                          type="number" 
+                          className="input-field" 
+                          value={shelterCapacidadTotal} 
+                          onChange={e => setShelterCapacidadTotal(parseInt(e.target.value) || 0)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Estado Operativo</label>
+                        <select 
+                          className="select-field" 
+                          value={shelterEstadoOperativo} 
+                          onChange={e => setShelterEstadoOperativo(e.target.value)}
+                        >
+                          <option value="activo">Activo</option>
+                          <option value="saturado">Saturado</option>
+                          <option value="cerrado">Cerrado</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      disabled={shelterSaving}
+                    >
+                      {shelterSaving ? (<><Loader2 size={18} className="animate-pulse-soft" /> Guardando...</>) : 'Registrar Refugio'}
                     </button>
                   </form>
                 </div>
