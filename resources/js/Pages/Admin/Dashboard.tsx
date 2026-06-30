@@ -56,6 +56,28 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
   const [shelterEstadoOperativo, setShelterEstadoOperativo] = useState('activo');
   const [shelterSaving, setShelterSaving] = useState(false);
 
+  // Shelter editing state
+  const [editingShelter, setEditingShelter] = useState<any>(null);
+  const [showEditShelterModal, setShowEditShelterModal] = useState(false);
+
+  // Refugees management state
+  const [refugeesList, setRefugeesList] = useState<any[]>([]);
+  const [refugeeSearch, setRefugeeSearch] = useState('');
+  const [refugeeFilterStatus, setRefugeeFilterStatus] = useState('todos'); // 'todos', 'verificado', 'pendiente'
+  const [refugeeFilterShelter, setRefugeeFilterShelter] = useState('');
+  
+  // Refugee editing state
+  const [editingRefugee, setEditingRefugee] = useState<any>(null);
+  const [showEditRefugeeModal, setShowEditRefugeeModal] = useState(false);
+  const [refugeeNombre, setRefugeeNombre] = useState('');
+  const [refugeeApellido, setRefugeeApellido] = useState('');
+  const [refugeeCedula, setRefugeeCedula] = useState('');
+  const [refugeeEdad, setRefugeeEdad] = useState('');
+  const [refugeeGenero, setRefugeeGenero] = useState('femenino');
+  const [refugeePrioridad, setRefugeePrioridad] = useState('normal');
+  const [refugeeRefugioId, setRefugeeRefugioId] = useState('');
+  const [refugeeSaving, setRefugeeSaving] = useState(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingInspector, setEditingInspector] = useState<any>(null);
   const editForm = useForm({
@@ -196,6 +218,179 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
     }
   };
 
+  const handleOpenEditShelterModal = (shelter: any) => {
+    setEditingShelter(shelter);
+    setShelterNombre(shelter.nombre);
+    setShelterDireccion(shelter.direccion);
+    setShelterEstado(shelter.estado);
+    setShelterMunicipio(shelter.municipio);
+    setShelterLatitud(String(shelter.latitud));
+    setShelterLongitud(String(shelter.longitud));
+    setShelterCapacidadTotal(shelter.capacidad_total);
+    setShelterEstadoOperativo(shelter.estado_operativo);
+    setShowEditShelterModal(true);
+  };
+
+  const handleUpdateShelter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingShelter) return;
+    setShelterSaving(true);
+    try {
+      const headers = {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      };
+
+      const payload = {
+        nombre: shelterNombre,
+        direccion: shelterDireccion,
+        estado: shelterEstado,
+        municipio: shelterMunicipio,
+        latitud: parseFloat(shelterLatitud || '0'),
+        longitud: parseFloat(shelterLongitud || '0'),
+        capacidad_total: parseInt(String(shelterCapacidadTotal)),
+        estado_operativo: shelterEstadoOperativo,
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/shelters?id=eq.${editingShelter.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update shelter');
+      }
+
+      setShowEditShelterModal(false);
+      setEditingShelter(null);
+      // Reset form
+      setShelterNombre('');
+      setShelterDireccion('');
+      setShelterEstado('Distrito Capital');
+      setShelterMunicipio('');
+      setShelterLatitud('');
+      setShelterLongitud('');
+      setShelterCapacidadTotal(100);
+      setShelterEstadoOperativo('activo');
+      
+      loadDashboard();
+      showAlert('Éxito', 'Refugio actualizado exitosamente.');
+    } catch (e) {
+      console.error('Error updating shelter:', e);
+      showAlert('Error', 'No se pudo actualizar el refugio.');
+    } finally {
+      setShelterSaving(false);
+    }
+  };
+
+  const handleToggleRefugeeVerification = async (id: number, currentStatus: boolean) => {
+    try {
+      const headers = {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      };
+
+      // Optimistic update
+      setRefugeesList(prev => prev.map(r => r.id === id ? { ...r, verificado: !currentStatus } : r));
+
+      await fetch(`${SUPABASE_URL}/rest/v1/refugees?id=eq.${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ verificado: !currentStatus }),
+      });
+      loadDashboard();
+    } catch (e) {
+      console.error('Error toggling refugee verification:', e);
+      showAlert('Error', 'No se pudo cambiar el estado de verificación.');
+    }
+  };
+
+  const handleOpenEditRefugeeModal = (refugee: any) => {
+    setEditingRefugee(refugee);
+    setRefugeeNombre(refugee.nombre);
+    setRefugeeApellido(refugee.apellido);
+    setRefugeeCedula(refugee.cedula || '');
+    setRefugeeEdad(refugee.edad ? String(refugee.edad) : '');
+    setRefugeeGenero(refugee.genero);
+    setRefugeePrioridad(refugee.prioridad);
+    setRefugeeRefugioId(String(refugee.refugio_id));
+    setShowEditRefugeeModal(true);
+  };
+
+  const handleUpdateRefugee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRefugee) return;
+    setRefugeeSaving(true);
+    try {
+      const headers = {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      };
+
+      const payload = {
+        nombre: refugeeNombre,
+        apellido: refugeeApellido,
+        cedula: refugeeCedula || null,
+        edad: refugeeEdad ? parseInt(refugeeEdad) : null,
+        genero: refugeeGenero,
+        prioridad: refugeePrioridad,
+        refugio_id: parseInt(refugeeRefugioId),
+      };
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/refugees?id=eq.${editingRefugee.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update refugee');
+      }
+
+      setShowEditRefugeeModal(false);
+      setEditingRefugee(null);
+      loadDashboard();
+      showAlert('Éxito', 'Datos del refugiado actualizados exitosamente.');
+    } catch (e) {
+      console.error('Error updating refugee:', e);
+      showAlert('Error', 'No se pudo actualizar el registro del refugiado.');
+    } finally {
+      setRefugeeSaving(false);
+    }
+  };
+
+  const handleDeleteRefugee = (id: number, name: string) => {
+    showConfirm(
+      'Eliminar Refugiado',
+      `¿Seguro que deseas eliminar el registro de ${name}? Esta acción no se puede deshacer.`,
+      async () => {
+        try {
+          const headers = {
+            'apikey': SUPABASE_ANON,
+            'Authorization': `Bearer ${SUPABASE_ANON}`,
+          };
+          setRefugeesList(prev => prev.filter(r => r.id !== id));
+          await fetch(`${SUPABASE_URL}/rest/v1/refugees?id=eq.${id}`, {
+            method: 'DELETE',
+            headers,
+          });
+          loadDashboard();
+          showAlert('Éxito', 'Registro eliminado correctamente.');
+        } catch (e) {
+          console.error('Error deleting refugee:', e);
+          showAlert('Error', 'No se pudo eliminar el registro.');
+        }
+      }
+    );
+  };
+
   useEffect(() => {
     loadDashboard();
   }, []);
@@ -206,7 +401,7 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
       const headers = { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` };
 
       const [refugeesRes, suppliesRes, sheltersRes] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/refugees?select=id,genero,edad,created_at`, { headers }),
+        fetch(`${SUPABASE_URL}/rest/v1/refugees?select=id,nombre,apellido,cedula,genero,edad,prioridad,verificado,refugio_id,created_at&order=apellido.asc`, { headers }),
         fetch(`${SUPABASE_URL}/rest/v1/supply_requirements?select=*,shelters(nombre)&order=id.asc`, { headers }),
         fetch(`${SUPABASE_URL}/rest/v1/shelters?select=*`, { headers }),
       ]);
@@ -214,6 +409,8 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
       const refugees = await refugeesRes.json();
       const suppliesData = await suppliesRes.json();
       const sheltersData = await sheltersRes.json();
+
+      setRefugeesList(Array.isArray(refugees) ? refugees : []);
 
       setSupplies(Array.isArray(suppliesData) ? suppliesData : []);
       setShelters(Array.isArray(sheltersData) ? sheltersData : []);
@@ -787,12 +984,13 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
                         <th style={{ textAlign: 'center' }}>Coordenadas</th>
                         <th style={{ textAlign: 'center' }}>Capacidad</th>
                         <th style={{ textAlign: 'center' }}>Estado Operativo</th>
+                        <th style={{ textAlign: 'right' }}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {shelters.length === 0 ? (
                         <tr>
-                          <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: 'var(--on-surface-variant)' }}>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--on-surface-variant)' }}>
                             No hay refugios cargados en el sistema.
                           </td>
                         </tr>
@@ -816,6 +1014,173 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
                                 {s.estado_operativo === 'activo' ? 'Activo' :
                                  s.estado_operativo === 'saturado' ? 'Saturado' : 'Cerrado'}
                               </span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                onClick={() => handleOpenEditShelterModal(s)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}
+                                title="Editar refugio"
+                              >
+                                <Pencil size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+
+            {/* Gestión de Refugiados */}
+            <div className="bento-grid" style={{ marginTop: '24px', marginBottom: '24px' }}>
+              <section className="bento-item" style={{ gridColumn: 'span 12' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 className="text-headline-md" style={{ color: 'var(--primary)' }}>Gestión de Refugiados</h2>
+                    <p className="text-body-sm" style={{ color: 'var(--on-surface-variant)', marginTop: '4px' }}>
+                      Listado, verificación y actualización de los datos de los ciudadanos registrados en los refugios.
+                    </p>
+                  </div>
+                  
+                  {/* Filters bar */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--outline)' }} />
+                      <input
+                        type="text"
+                        className="search-bar"
+                        style={{ height: '40px', paddingLeft: '36px', width: '200px', fontSize: '14px' }}
+                        placeholder="Buscar por nombre/cédula..."
+                        value={refugeeSearch}
+                        onChange={e => setRefugeeSearch(e.target.value)}
+                      />
+                    </div>
+                    
+                    <select
+                      className="select-field"
+                      style={{ height: '40px', padding: '0 12px', width: '150px', fontSize: '14px' }}
+                      value={refugeeFilterStatus}
+                      onChange={e => setRefugeeFilterStatus(e.target.value)}
+                    >
+                      <option value="todos">Todos los Estados</option>
+                      <option value="verificado">Verificados</option>
+                      <option value="pendiente">Pendientes</option>
+                    </select>
+
+                    <select
+                      className="select-field"
+                      style={{ height: '40px', padding: '0 12px', width: '180px', fontSize: '14px' }}
+                      value={refugeeFilterShelter}
+                      onChange={e => setRefugeeFilterShelter(e.target.value)}
+                    >
+                      <option value="">Todos los Refugios</option>
+                      {shelters.map(s => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Nombres y Apellidos</th>
+                        <th>Cédula</th>
+                        <th>Género / Edad</th>
+                        <th>Refugio Asignado</th>
+                        <th style={{ textAlign: 'center' }}>Prioridad</th>
+                        <th style={{ textAlign: 'center' }}>Estado</th>
+                        <th style={{ textAlign: 'center', width: '50px' }}><Pencil size={18} /></th>
+                        <th style={{ textAlign: 'center', width: '50px' }}><Trash2 size={18} style={{ color: 'var(--error)' }} /></th>
+                        <th style={{ textAlign: 'right' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {refugeesList.filter(r => {
+                        const matchesSearch = !refugeeSearch || 
+                          `${r.nombre} ${r.apellido}`.toLowerCase().includes(refugeeSearch.toLowerCase()) ||
+                          (r.cedula && r.cedula.toLowerCase().includes(refugeeSearch.toLowerCase()));
+                        
+                        const matchesStatus = refugeeFilterStatus === 'todos' ||
+                          (refugeeFilterStatus === 'verificado' && r.verificado) ||
+                          (refugeeFilterStatus === 'pendiente' && !r.verificado);
+
+                        const matchesShelter = !refugeeFilterShelter || String(r.refugio_id) === refugeeFilterShelter;
+
+                        return matchesSearch && matchesStatus && matchesShelter;
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: 'var(--on-surface-variant)' }}>
+                            No se encontraron refugiados registrados con los filtros seleccionados.
+                          </td>
+                        </tr>
+                      ) : (
+                        refugeesList.filter(r => {
+                          const matchesSearch = !refugeeSearch || 
+                            `${r.nombre} ${r.apellido}`.toLowerCase().includes(refugeeSearch.toLowerCase()) ||
+                            (r.cedula && r.cedula.toLowerCase().includes(refugeeSearch.toLowerCase()));
+                          
+                          const matchesStatus = refugeeFilterStatus === 'todos' ||
+                            (refugeeFilterStatus === 'verificado' && r.verificado) ||
+                            (refugeeFilterStatus === 'pendiente' && !r.verificado);
+
+                          const matchesShelter = !refugeeFilterShelter || String(r.refugio_id) === refugeeFilterShelter;
+
+                          return matchesSearch && matchesStatus && matchesShelter;
+                        }).map((r: any) => (
+                          <tr key={r.id}>
+                            <td>
+                              <span style={{ fontWeight: 500 }}>{r.nombre} {r.apellido}</span>
+                            </td>
+                            <td className="text-body-md">{r.cedula || '—'}</td>
+                            <td className="text-body-md">
+                              <span style={{ textTransform: 'capitalize' }}>{r.genero}</span>, {r.edad ? `${r.edad} años` : '—'}
+                            </td>
+                            <td className="text-body-md" style={{ fontWeight: 500 }}>
+                              {shelters.find(s => s.id === r.refugio_id)?.nombre || 'Cargando...'}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`chip ${
+                                r.prioridad === 'urgente' ? 'chip-urgente' :
+                                r.prioridad === 'medica' ? 'chip-medica' : 'chip-normal'
+                              }`}>
+                                {r.prioridad === 'medica' ? 'Médica' : r.prioridad.charAt(0).toUpperCase() + r.prioridad.slice(1)}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`chip ${r.verificado ? 'chip-suficiente' : 'chip-critico'}`}>
+                                {r.verificado ? 'Verificado' : 'Pendiente'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleOpenEditRefugeeModal(r)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--on-surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Editar datos"
+                              >
+                                <Pencil size={18} />
+                              </button>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleDeleteRefugee(r.id, `${r.nombre} ${r.apellido}`)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Eliminar registro"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                onClick={() => handleToggleRefugeeVerification(r.id, r.verificado)}
+                                className={`btn ${r.verificado ? 'btn-outline' : 'btn-primary'}`}
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                {r.verificado ? 'Desmarcar' : 'Verificar'}
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -1028,6 +1393,257 @@ export default function Dashboard({ inspectors = [] }: { inspectors?: any[] }) {
                       disabled={shelterSaving}
                     >
                       {shelterSaving ? (<><Loader2 size={18} className="animate-pulse-soft" /> Guardando...</>) : 'Registrar Refugio'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Edición de Refugio */}
+            {showEditShelterModal && editingShelter && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100,
+                padding: '16px'
+              }}>
+                <div className="bento-item" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'var(--surface-container-lowest)', borderRadius: '16px', boxShadow: 'var(--elevation-3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 className="text-headline-md" style={{ color: 'var(--primary)', margin: 0 }}>Editar Refugio</h3>
+                    <button className="btn btn-outline" style={{ padding: '6px', borderRadius: '50%', minWidth: 'auto' }} onClick={() => { setShowEditShelterModal(false); setEditingShelter(null); }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleUpdateShelter} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label className="input-label">Nombre del Refugio</label>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={shelterNombre} 
+                        onChange={e => setShelterNombre(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="input-label">Dirección</label>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={shelterDireccion} 
+                        onChange={e => setShelterDireccion(e.target.value)} 
+                        required 
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Estado</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          value={shelterEstado} 
+                          onChange={e => setShelterEstado(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Municipio</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          value={shelterMunicipio} 
+                          onChange={e => setShelterMunicipio(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Latitud</label>
+                        <input 
+                          type="number" 
+                          step="any"
+                          className="input-field" 
+                          value={shelterLatitud} 
+                          onChange={e => setShelterLatitud(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Longitud</label>
+                        <input 
+                          type="number" 
+                          step="any"
+                          className="input-field" 
+                          value={shelterLongitud} 
+                          onChange={e => setShelterLongitud(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Capacidad Total</label>
+                        <input 
+                          type="number" 
+                          className="input-field" 
+                          value={shelterCapacidadTotal} 
+                          onChange={e => setShelterCapacidadTotal(parseInt(e.target.value) || 0)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Estado Operativo</label>
+                        <select 
+                          className="select-field" 
+                          value={shelterEstadoOperativo} 
+                          onChange={e => setShelterEstadoOperativo(e.target.value)}
+                        >
+                          <option value="activo">Activo</option>
+                          <option value="saturado">Saturado</option>
+                          <option value="cerrado">Cerrado</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      disabled={shelterSaving}
+                    >
+                      {shelterSaving ? (<><Loader2 size={18} className="animate-pulse-soft" /> Guardando...</>) : 'Guardar Cambios'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Edición de Refugiado */}
+            {showEditRefugeeModal && editingRefugee && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100,
+                padding: '16px'
+              }}>
+                <div className="bento-item" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'var(--surface-container-lowest)', borderRadius: '16px', boxShadow: 'var(--elevation-3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 className="text-headline-md" style={{ color: 'var(--primary)', margin: 0 }}>Editar Datos del Refugiado</h3>
+                    <button className="btn btn-outline" style={{ padding: '6px', borderRadius: '50%', minWidth: 'auto' }} onClick={() => { setShowEditRefugeeModal(false); setEditingRefugee(null); }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleUpdateRefugee} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Nombres</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          value={refugeeNombre} 
+                          onChange={e => setRefugeeNombre(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Apellidos</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          value={refugeeApellido} 
+                          onChange={e => setRefugeeApellido(e.target.value)} 
+                          required 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Cédula</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          placeholder="Ej: V-12345678" 
+                          value={refugeeCedula} 
+                          onChange={e => setRefugeeCedula(e.target.value)} 
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Edad</label>
+                        <input 
+                          type="number" 
+                          className="input-field" 
+                          placeholder="Ej: 25" 
+                          value={refugeeEdad} 
+                          onChange={e => setRefugeeEdad(e.target.value)} 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label className="input-label">Género</label>
+                        <select 
+                          className="select-field" 
+                          value={refugeeGenero} 
+                          onChange={e => setRefugeeGenero(e.target.value)}
+                        >
+                          <option value="femenino">Femenino</option>
+                          <option value="masculino">Masculino</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="input-label">Prioridad</label>
+                        <select 
+                          className="select-field" 
+                          value={refugeePrioridad} 
+                          onChange={e => setRefugeePrioridad(e.target.value)}
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="medica">Médica</option>
+                          <option value="urgente">Urgente</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="input-label">Refugio Asignado</label>
+                      <select 
+                        className="select-field" 
+                        value={refugeeRefugioId} 
+                        onChange={e => setRefugeeRefugioId(e.target.value)}
+                        required
+                      >
+                        {shelters.map(s => (
+                          <option key={s.id} value={s.id}>{s.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary" 
+                      style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      disabled={refugeeSaving}
+                    >
+                      {refugeeSaving ? (<><Loader2 size={18} className="animate-pulse-soft" /> Guardando...</>) : 'Guardar Cambios'}
                     </button>
                   </form>
                 </div>
